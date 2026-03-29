@@ -2,7 +2,7 @@
 
 set -e
 
-REPO_URL="https://raw.githubusercontent.com/andkirby/agent-cli-statusline/main/statusline-command.sh"
+REPO_URL="https://raw.githubusercontent.com/andkirby/claude-statusline/main/statusline-command.sh"
 SCRIPT_PATH="$HOME/.claude/statusline/statusline-command.sh"
 SETTINGS_FILE="$HOME/.claude/settings.json"
 
