@@ -2,6 +2,10 @@
 
 A custom statusline for Claude Code CLI that displays a visual context usage bar, model name, directory, git branch, session duration, and optional cost.
 
+## Alternative for `Pi` π (the colored context bar only)
+
+https://github.com/andkirby/pi-context-bar
+
 ## Example Output
 
 ```
@@ -13,6 +17,8 @@ With `STATUSLINE_COST=true`:
 ```
 Claude 3.5 Sonnet 📁 my-project | 🌿 main | [35%░░░░░░░░205k] | 💰 $0.42 | ⏱️ 12m 34s
 ```
+
+<img width="483" height="619" alt="image" src="https://github.com/user-attachments/assets/fa72e521-5ddf-4f60-8070-2a6c95ccc1a1" />
 
 ## Features
 
