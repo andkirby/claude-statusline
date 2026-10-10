@@ -12,9 +12,15 @@
 # Env vars:
 #   STATUSLINE_SUBAGENT_DESC=false|0   Hide task description (default: shown when it fits)
 
-input=$(cat)
+# Slurp stdin with a builtin (no cat subprocess); read returns non-zero at EOF
+input=''
+IFS= read -r -d '' input || true
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
+_src="${BASH_SOURCE[0]:-$0}"
+case "$_src" in
+    */*) SCRIPT_DIR="$(cd "${_src%/*}" && pwd)" ;;
+    *)   SCRIPT_DIR="$PWD" ;;
+esac
 if [ -f "$SCRIPT_DIR/lib-context-bar.sh" ]; then
     # shellcheck source=lib-context-bar.sh
     . "$SCRIPT_DIR/lib-context-bar.sh"
