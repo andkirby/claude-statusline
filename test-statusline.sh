@@ -74,3 +74,51 @@ STATUSLINE_COST=0 echo "[STATUSLINE_COST=0 (hidden)]"
 echo "→ $(STATUSLINE_COST=0 bash -c "echo '$JSON' | '$STATUSLINE_SCRIPT'")"
 
 echo "=== End ==="
+
+echo ""
+echo "=== Agent/Teammate Badge (.agent.name) ==="
+BASE_JSON='{"model":{"display_name":"Opus 4.6"},"workspace":{"current_dir":"/Users/user/project"},"cost":{"total_cost_usd":0.5,"total_duration_ms":90000},"context_window":{"used_percentage":50,"used_tokens":100000,"context_window_size":200000}}'
+
+echo "[no agent field (hidden)]"
+echo "→ $(echo "$BASE_JSON" | "$STATUSLINE_SCRIPT")"
+
+echo "[with agent.name=team-researcher (shown)]"
+echo "→ $(echo "${BASE_JSON%\}*}, \"agent\": {\"name\": \"team-researcher\"}}" | "$STATUSLINE_SCRIPT")"
+echo "=== End ==="
+
+echo ""
+echo "=== Subagent Statusline (tasks[] rows) ==="
+SUBAGENT_SCRIPT="$HOME/.claude/statusline/subagent-statusline.sh"
+
+sub_test() {
+    local desc="$1"
+    local json="$2"
+    echo "[$desc]"
+    local out
+    out=$(echo "$json" | "$SUBAGENT_SCRIPT")
+    if [ -z "$out" ]; then
+        echo "→ (empty output)"
+    else
+        # Validate each line is well-formed {"id","content"} JSON, then show decoded content
+        echo "$out" | jq -e 'has("id") and has("content")' > /dev/null 2>&1 \
+            && echo "→ $(echo "$out" | jq -r '.id + ": " + .content' | sed $'s/\033\\[[0-9;]*m//g')" \
+            || echo "→ INVALID JSON: $out"
+    fi
+}
+
+NOW_MS=$(($(date +%s) * 1000))
+TASKS_JSON='"columns":120,"tasks":[{"id":"t1","name":"researcher","type":"local_agent","status":"running","description":"Explore the codebase for schema info","label":"reading statusline docs","startTime":'"$((NOW_MS - 75000))"',"model":"claude-opus-4-6","contextWindowSize":200000,"tokenCount":46000,"tokenSamples":[1000,5000,20000],"cwd":"/tmp"}]'
+
+sub_test "running teammate, wide columns (desc shown)" "{$TASKS_JSON}"
+sub_test "running teammate, narrow columns (desc dropped)" "$(echo "$TASKS_JSON" | sed 's/"columns":120/"columns":40/' | sed 's/^/{/' | sed 's/$/}/')"
+sub_test "no columns field (default 80)" "{${TASKS_JSON/\"columns\":120,/}}"
+
+sub_test "completed teammate" "{\"columns\":120,\"tasks\":[{\"id\":\"t2\",\"name\":\"worker\",\"type\":\"local_agent\",\"status\":\"completed\",\"description\":\"Implement the parser\",\"startTime\":$((NOW_MS - 7200000)),\"contextWindowSize\":200000,\"tokenCount\":150000}]}"
+sub_test "failed teammate" "{\"columns\":120,\"tasks\":[{\"id\":\"t3\",\"name\":\"reviewer\",\"type\":\"local_agent\",\"status\":\"failed\",\"description\":\"Review diff\",\"startTime\":$((NOW_MS - 30000)),\"tokenCount\":8000}]}"
+sub_test "killed teammate" "{\"columns\":120,\"tasks\":[{\"id\":\"t4\",\"name\":\"tester\",\"type\":\"local_agent\",\"status\":\"killed\",\"description\":\"Run tests\",\"startTime\":$((NOW_MS - 600000)),\"tokenCount\":42000}]}"
+sub_test "no name, agentType only (pre-v2.1.293 payload)" '{"columns":120,"tasks":[{"id":"t5","type":"local_agent","agentType":"Explore","status":"running","description":"Find symbols","tokenCount":12000,"contextWindowSize":200000}]}'
+sub_test "no contextWindowSize (no bar)" '{"columns":120,"tasks":[{"id":"t6","name":"scout","type":"local_agent","status":"running","description":"Scanning","tokenCount":9000}]}'
+sub_test "empty tasks array" '{"columns":120,"tasks":[]}'
+sub_test "no tasks field" '{"columns":120,"session_id":"abc"}'
+
+echo "=== End ==="
