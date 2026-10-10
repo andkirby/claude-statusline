@@ -54,11 +54,20 @@ git rev-parse --git-dir > /dev/null 2>&1 && BRANCH=" | 🌿 $(git branch --show-
 AGENT_BLOCK=""
 TEAMMATE_NAME=""
 if [ -n "$TMUX_PANE" ]; then
-    MATCH=$(grep -lF -- "$TMUX_PANE" "$HOME"/.claude/teams/*/config.json 2>/dev/null | head -1)
-    if [ -n "$MATCH" ]; then
-        TEAMMATE_NAME=$(jq -r --arg pane "$TMUX_PANE" --arg dir "$DIR" \
+    # Multiple team configs can carry the same tmuxPaneId (pane ids are
+    # reused across sessions); prefer the most recently modified config,
+    # since live teams get rewritten on member activity.
+    BEST=""
+    while IFS= read -r MATCH; do
+        [ -z "$MATCH" ] && continue
+        NAME=$(jq -r --arg pane "$TMUX_PANE" --arg dir "$DIR" \
             '.members[]? | select(.tmuxPaneId == $pane and .cwd == $dir) | .name' "$MATCH" | head -1)
-    fi
+        [ -z "$NAME" ] && continue
+        if [ -z "$BEST" ] || [ "$MATCH" -nt "$BEST" ]; then
+            BEST="$MATCH"
+            TEAMMATE_NAME="$NAME"
+        fi
+    done <<< "$(grep -lF -- "$TMUX_PANE" "$HOME"/.claude/teams/*/config.json 2>/dev/null)"
 fi
 
 if [ -n "$TEAMMATE_NAME" ]; then

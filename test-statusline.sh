@@ -141,7 +141,24 @@ EOF
 
 TEAM_JSON='{"model":{"display_name":"Opus"},"workspace":{"current_dir":"/Users/user/project"},"session_id":"deadbeef-1234","cost":{"total_duration_ms":60000},"context_window":{"used_percentage":10,"used_tokens":20000,"context_window_size":200000}}'
 
-echo "[teammate pane: TMUX_PANE=%0 resolves to opus-verifier]"
+# Collision fixture: a STALE team config from an earlier wave also claims
+# pane %0 with the same cwd. It sorts alphabetically FIRST (cafe < dead);
+# the live config is re-touched afterwards so it is the NEWEST file —
+# only newest-mtime logic can resolve correctly.
+STALE_DIR="$FAKE_HOME/.claude/teams/session-cafe0000"
+mkdir -p "$STALE_DIR"
+cat > "$STALE_DIR/config.json" <<'EOF'
+{
+  "name": "session-cafe0000",
+  "leadSessionId": "cafe0000-0000-0000-0000-000000000000",
+  "members": [
+    {"agentId": "stale-teammate@session-cafe0000", "name": "stale-teammate", "agentType": "claude", "tmuxPaneId": "%0", "cwd": "/Users/user/project", "isActive": true, "backendType": "tmux"}
+  ]
+}
+EOF
+touch "$TEAM_DIR/config.json"
+
+echo "[teammate pane: TMUX_PANE=%0 resolves to opus-verifier (newest config wins over stale collision)]"
 echo "→ $(echo "$TEAM_JSON" | TMUX_PANE='%0' HOME="$FAKE_HOME" bash "$STATUSLINE_SCRIPT")"
 
 echo "[unknown pane id: lead bar falls back to active roster]"
