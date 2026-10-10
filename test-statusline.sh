@@ -152,7 +152,8 @@ cat > "$STALE_DIR/config.json" <<'EOF'
   "name": "session-cafe0000",
   "leadSessionId": "cafe0000-0000-0000-0000-000000000000",
   "members": [
-    {"agentId": "stale-teammate@session-cafe0000", "name": "stale-teammate", "agentType": "claude", "tmuxPaneId": "%0", "cwd": "/Users/user/project", "isActive": true, "backendType": "tmux"}
+    {"agentId": "stale-teammate@session-cafe0000", "name": "stale-teammate", "agentType": "claude", "tmuxPaneId": "%0", "cwd": "/Users/user/project", "isActive": false, "backendType": "tmux"},
+    {"agentId": "foreign-teammate@session-cafe0000", "name": "foreign-teammate", "agentType": "claude", "cwd": "/other/project", "isActive": true, "backendType": "tmux"}
   ]
 }
 EOF
@@ -164,8 +165,11 @@ echo "→ $(echo "$TEAM_JSON" | TMUX_PANE='%0' HOME="$FAKE_HOME" bash "$STATUSLI
 echo "[unknown pane id: lead bar falls back to active roster]"
 echo "→ $(echo "$TEAM_JSON" | TMUX_PANE='%9' HOME="$FAKE_HOME" bash "$STATUSLINE_SCRIPT")"
 
-echo "[no tmux: lead bar shows active roster]"
+echo "[no tmux: lead bar shows active roster (cwd-guarded: excludes foreign-teammate)]"
 echo "→ $(echo "$TEAM_JSON" | HOME="$FAKE_HOME" bash "$STATUSLINE_SCRIPT")"
+
+echo "[foreign cwd payload: no roster members match → no badge]"
+echo "→ $(echo "$TEAM_JSON" | sed 's|/Users/user/project|/elsewhere|g' | HOME="$FAKE_HOME" bash "$STATUSLINE_SCRIPT")"
 
 jq '.members[1].isActive = false' "$TEAM_DIR/config.json" > "$TEAM_DIR/config.json.new" && mv "$TEAM_DIR/config.json.new" "$TEAM_DIR/config.json"
 echo "[roster all inactive → no badge]"

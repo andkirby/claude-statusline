@@ -33,7 +33,6 @@ USED_TOKENS=$(echo "$input" | jq -r '.context_window.used_tokens // 0')
 TOTAL_TOKENS=$(echo "$input" | jq -r '.context_window.context_window_size // 0')
 DURATION_MS=$(echo "$input" | jq -r '.cost.total_duration_ms // 0')
 AGENT=$(echo "$input" | jq -r '.agent.name // empty')
-SESSION_ID=$(echo "$input" | jq -r '.session_id // empty')
 
 BAR=$(build_context_bar "$PCT" "$USED_TOKENS" "$TOTAL_TOKENS")
 
@@ -75,11 +74,14 @@ if [ -n "$TEAMMATE_NAME" ]; then
 elif [ -n "$AGENT" ]; then
     AGENT_BLOCK=" 🤖 ${MAGENTA}${AGENT}${RESET}"
 else
-    TEAM_DIR="$HOME/.claude/teams/session-${SESSION_ID:0:8}"
-    if [ -f "$TEAM_DIR/config.json" ]; then
-        ACTIVE_TEAMMATES=$(jq -r '[.members[]? | select(.isActive == true and .agentType != "team-lead") | .name] | join(", ")' "$TEAM_DIR/config.json" 2>/dev/null)
-        [ -n "$ACTIVE_TEAMMATES" ] && AGENT_BLOCK=" 🤖 ${MAGENTA}${ACTIVE_TEAMMATES}${RESET}"
-    fi
+    # Team roster: union of active teammates across ALL team configs whose
+    # member cwd matches this session's directory. Team dir ids are minted
+    # per spawn wave and are NOT derivable from the payload session_id, so
+    # no id-based lookup is possible — scan and filter instead.
+    ACTIVE_TEAMMATES=$(grep -l 'isActive' "$HOME"/.claude/teams/*/config.json 2>/dev/null | while IFS= read -r f; do
+        jq -r --arg dir "$DIR" '.members[]? | select(.isActive == true and .agentType != "team-lead" and .cwd == $dir) | .name' "$f" 2>/dev/null
+    done | sort -u | tr '\n' ',' | sed 's/,$//; s/,/, /g')
+    [ -n "$ACTIVE_TEAMMATES" ] && AGENT_BLOCK=" 🤖 ${MAGENTA}${ACTIVE_TEAMMATES}${RESET}"
 fi
 
 echo -ne "\033[1;38;5;30m${MODEL}${RESET}${AGENT_BLOCK} 📁 ${DIR##*/}$BRANCH | "
