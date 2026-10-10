@@ -122,3 +122,37 @@ sub_test "empty tasks array" '{"columns":120,"tasks":[]}'
 sub_test "no tasks field" '{"columns":120,"session_id":"abc"}'
 
 echo "=== End ==="
+
+echo ""
+echo "=== Teammate Identity Resolution (team config) ==="
+FAKE_HOME=$(mktemp -d)
+TEAM_DIR="$FAKE_HOME/.claude/teams/session-deadbeef"
+mkdir -p "$TEAM_DIR"
+cat > "$TEAM_DIR/config.json" <<'EOF'
+{
+  "name": "session-deadbeef",
+  "leadSessionId": "deadbeef-0000-0000-0000-000000000000",
+  "members": [
+    {"agentId": "team-lead@session-deadbeef", "name": "team-lead", "agentType": "team-lead", "tmuxPaneId": "leader", "cwd": "/Users/user/project", "isActive": true, "backendType": "in-process"},
+    {"agentId": "opus-verifier@session-deadbeef", "name": "opus-verifier", "agentType": "claude", "tmuxPaneId": "%0", "cwd": "/Users/user/project", "isActive": true, "backendType": "tmux"}
+  ]
+}
+EOF
+
+TEAM_JSON='{"model":{"display_name":"Opus"},"workspace":{"current_dir":"/Users/user/project"},"session_id":"deadbeef-1234","cost":{"total_duration_ms":60000},"context_window":{"used_percentage":10,"used_tokens":20000,"context_window_size":200000}}'
+
+echo "[teammate pane: TMUX_PANE=%0 resolves to opus-verifier]"
+echo "→ $(echo "$TEAM_JSON" | TMUX_PANE='%0' HOME="$FAKE_HOME" bash "$STATUSLINE_SCRIPT")"
+
+echo "[unknown pane id: lead bar falls back to active roster]"
+echo "→ $(echo "$TEAM_JSON" | TMUX_PANE='%9' HOME="$FAKE_HOME" bash "$STATUSLINE_SCRIPT")"
+
+echo "[no tmux: lead bar shows active roster]"
+echo "→ $(echo "$TEAM_JSON" | HOME="$FAKE_HOME" bash "$STATUSLINE_SCRIPT")"
+
+jq '.members[1].isActive = false' "$TEAM_DIR/config.json" > "$TEAM_DIR/config.json.new" && mv "$TEAM_DIR/config.json.new" "$TEAM_DIR/config.json"
+echo "[roster all inactive → no badge]"
+echo "→ $(echo "$TEAM_JSON" | HOME="$FAKE_HOME" bash "$STATUSLINE_SCRIPT")"
+
+rm -rf "$FAKE_HOME"
+echo "=== End ==="

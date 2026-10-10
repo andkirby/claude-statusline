@@ -5,9 +5,15 @@
 #   STATUSLINE_COST=true|1   Show cost block (default: hidden)
 # Shows a 🤖 badge with .agent.name when the session runs as an agent/teammate.
 
-input=$(cat)
+# Slurp stdin with a builtin (no cat subprocess); read returns non-zero at EOF
+input=''
+IFS= read -r -d '' input || true
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
+_src="${BASH_SOURCE[0]:-$0}"
+case "$_src" in
+    */*) SCRIPT_DIR="$(cd "${_src%/*}" && pwd)" ;;
+    *)   SCRIPT_DIR="$PWD" ;;
+esac
 if [ -f "$SCRIPT_DIR/lib-context-bar.sh" ]; then
     # shellcheck source=lib-context-bar.sh
     . "$SCRIPT_DIR/lib-context-bar.sh"
@@ -27,6 +33,7 @@ USED_TOKENS=$(echo "$input" | jq -r '.context_window.used_tokens // 0')
 TOTAL_TOKENS=$(echo "$input" | jq -r '.context_window.context_window_size // 0')
 DURATION_MS=$(echo "$input" | jq -r '.cost.total_duration_ms // 0')
 AGENT=$(echo "$input" | jq -r '.agent.name // empty')
+SESSION_ID=$(echo "$input" | jq -r '.session_id // empty')
 
 BAR=$(build_context_bar "$PCT" "$USED_TOKENS" "$TOTAL_TOKENS")
 
@@ -37,9 +44,34 @@ SECS=$(((DURATION_MS % 60000) / 1000))
 BRANCH=""
 git rev-parse --git-dir > /dev/null 2>&1 && BRANCH=" | 🌿 $(git branch --show-current 2>/dev/null)"
 
-# Agent/teammate badge: shown when Claude Code reports .agent.name
+# Agent/teammate badge, resolved in three tiers:
+#   1. Inside a teammate's tmux pane: $TMUX_PANE matches members[].tmuxPaneId
+#      in ~/.claude/teams/*/config.json -> the teammate's real name (the
+#      payload's .agent.name only carries the generic agent TYPE there).
+#   2. .agent.name from the payload (agent sessions without a matching pane).
+#   3. Lead bar: active teammates from the team roster keyed by this
+#      session's id (team dir = session-<first 8 chars of session_id>).
 AGENT_BLOCK=""
-[ -n "$AGENT" ] && AGENT_BLOCK=" 🤖 ${MAGENTA}${AGENT}${RESET}"
+TEAMMATE_NAME=""
+if [ -n "$TMUX_PANE" ]; then
+    MATCH=$(grep -lF -- "$TMUX_PANE" "$HOME"/.claude/teams/*/config.json 2>/dev/null | head -1)
+    if [ -n "$MATCH" ]; then
+        TEAMMATE_NAME=$(jq -r --arg pane "$TMUX_PANE" --arg dir "$DIR" \
+            '.members[]? | select(.tmuxPaneId == $pane and .cwd == $dir) | .name' "$MATCH" | head -1)
+    fi
+fi
+
+if [ -n "$TEAMMATE_NAME" ]; then
+    AGENT_BLOCK=" 🤖 ${MAGENTA}${TEAMMATE_NAME}${RESET}"
+elif [ -n "$AGENT" ]; then
+    AGENT_BLOCK=" 🤖 ${MAGENTA}${AGENT}${RESET}"
+else
+    TEAM_DIR="$HOME/.claude/teams/session-${SESSION_ID:0:8}"
+    if [ -f "$TEAM_DIR/config.json" ]; then
+        ACTIVE_TEAMMATES=$(jq -r '[.members[]? | select(.isActive == true and .agentType != "team-lead") | .name] | join(", ")' "$TEAM_DIR/config.json" 2>/dev/null)
+        [ -n "$ACTIVE_TEAMMATES" ] && AGENT_BLOCK=" 🤖 ${MAGENTA}${ACTIVE_TEAMMATES}${RESET}"
+    fi
+fi
 
 echo -ne "\033[1;38;5;30m${MODEL}${RESET}${AGENT_BLOCK} 📁 ${DIR##*/}$BRANCH | "
 

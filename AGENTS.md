@@ -38,8 +38,9 @@ echo '{"columns":120,"tasks":[{"id":"t1","name":"researcher","status":"running",
 - Color tiers: ≤30% green → 40% light green → 50% orange → 60% pink → 70%+ red
 - Cost block hidden by default; set `STATUSLINE_COST=true` or `1` to enable
 - Git branch shown when inside a git repo
-- `🤖 agent.name` badge shown when the session runs as an agent/teammate (`.agent.name` in the JSON input)
+- `🤖` badge resolves teammate identity in three tiers: (1) inside a teammate's tmux pane, `$TMUX_PANE` is matched against `members[].tmuxPaneId` (+ cwd guard) in `~/.claude/teams/*/config.json` to show the teammate's real name; (2) `.agent.name` from the JSON payload (agent *type* — full-instance teammate sessions only); (3) lead bar shows the active-teammate roster from the team dir keyed by own `session_id` (`~/.claude/teams/session-<first-8-chars>/config.json`, `isActive` members). The in-app agent-panel selection is never exposed to the statusline (lead payload only), so it cannot be reflected in the main bar.
 - ANSI colors are built as real escape bytes (via `printf '\033'`) and the bar's fill uses a literal braille char (U+2800) — no `\u` escapes, for macOS bash 3.2 compatibility
+- stdin is slurped with the builtin `read -r -d ''` idiom and the script dir is derived via parameter expansion — no `cat`/`dirname` subprocesses
 
 ## Subagent/Teammate Statusline
 
