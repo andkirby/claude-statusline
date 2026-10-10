@@ -27,6 +27,7 @@ if [ -f "$SCRIPT_DIR/lib-context-bar.sh" ]; then
 else
     # Minimal fallback if the shared library is missing
     ESC=$(printf '\033'); GREEN="${ESC}[32m"; DARKGREEN="${ESC}[38;5;22m"; YELLOW="${ESC}[33m"; RED="${ESC}[31m"; WHITE="${ESC}[97m"; GRAY="${ESC}[90m"; RESET="${ESC}[0m"
+    TOTAL_SLOTS=10
     build_context_bar() { printf '%s%%' "$1"; }
     fmt_tokens() { printf '%sk' "$(($1 / 1000))"; }
     fmt_elapsed() { printf '%dm' "$((($1 % 3600000) / 60000))"; }
@@ -83,7 +84,7 @@ echo "$input" | jq -c '(.tasks // [])[]?' | while IFS= read -r task; do
 
     LINE="${ICON_COLOR}${CORE}${RESET}"
     BAR_PLAIN=0
-    [ -n "$BAR" ] && BAR_PLAIN=10   # bar is always 10 visible slots; ${#BAR} would count ANSI bytes
+    [ -n "$BAR" ] && BAR_PLAIN=$TOTAL_SLOTS   # bar is always TOTAL_SLOTS visible slots; ${#BAR} would count ANSI bytes
     PLAIN_LEN=$((1 + 1 + ${#NAME} + BAR_PLAIN + 1 + ${#INFO}))
 
     SHOW_DESC=true

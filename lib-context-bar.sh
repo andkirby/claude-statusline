@@ -5,7 +5,11 @@
 # `printf`/`jq` without needing `echo -e` interpretation.
 
 ESC=$(printf '\033')
-CYAN="${ESC}[36m"; GREEN="${ESC}[32m"; DARKGREEN="${ESC}[38;5;22m"; YELLOW="${ESC}[33m"; ORANGE="${ESC}[38;5;208m"; RED="${ESC}[31m"; WHITE="${ESC}[97m"; MAGENTA="${ESC}[35m"; GRAY="${ESC}[90m"; RESET="${ESC}[0m"
+GREEN="${ESC}[32m"; DARKGREEN="${ESC}[38;5;22m"; YELLOW="${ESC}[33m"; RED="${ESC}[31m"; WHITE="${ESC}[97m"; MAGENTA="${ESC}[35m"; GRAY="${ESC}[90m"; RESET="${ESC}[0m"
+
+# Visible slots in the context bar; subagent-statusline.sh reads this for
+# width math instead of hard-coding the bar width.
+TOTAL_SLOTS=10
 
 # Empty braille char (U+2800) as a literal UTF-8 byte sequence — avoids \u
 # escapes that older bash (3.2 on macOS) cannot interpret.
@@ -69,7 +73,6 @@ build_context_bar() {
     local PCT_FULL="${PCT}%"
     local PCT_LEN=${#PCT_FULL}                    # e.g. 3 for "23%"
     local CTX_LEN=${#CTX_SIZE}                    # e.g. 4 for "205k"
-    local TOTAL_SLOTS=10
     local BAR_START=$PCT_LEN                      # slot where bar begins
     local BAR_END=$((TOTAL_SLOTS - CTX_LEN))      # slot where bar ends (exclusive)
     local FILLED_SLOTS=$((PCT / 10))
